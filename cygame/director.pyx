@@ -1,23 +1,15 @@
-from config cimport (
+from cysfml.config cimport (
     Uint8,
 )
-from csystem cimport Vector2u
-from system cimport create_vector2u
-cimport cgraphics
-from graphics cimport (
-    create_color_from_rgb,
-    create_color_from_rgba,
-    create_render_window,
-    unpack_color_rgb,
-    unpack_color_rgba,
+from cysfml cimport (
+    csystem,
+    system,
+    cgraphics,
+    graphics,
+    cwindow,
+    window,
 )
-cimport cwindow
-from window cimport (
-    VideoMode,
-    create_video_mode,
-    #desktop_mode,
-    #fullscreen_modes,
-)
+
 from window import (
     KEY_NAME_LOOKUP,
     MOUSE_BUTTON_NAME_LOOKUP,
@@ -48,7 +40,7 @@ cdef class Director:
                   unsigned int bits_per_pixel=DEFAULT_WINDOW_BITS_PER_PIXEL,
                   bint vsync=DEFAULT_VSYNC,
                   unsigned int fps=DEFAULT_FPS):
-        self.video_mode = create_video_mode(width, height, bits_per_pixel)
+        self.video_mode = graphics.VideoMode(width, height, bits_per_pixel)
         self._title = title
         self._vsync = vsync
         
@@ -56,131 +48,130 @@ cdef class Director:
         self._repeat_key_enabled = True
         self._joystick_threshold = 0.1
         self._visible = True
-        self._clear_color = create_color_from_rgb(0, 0, 0)
+        self._clear_color = cgraphics.Color_from_rgb(0, 0, 0)
         self.limit_mouse_move_events = False
         
         self._scenes = []
     
     # scene
     
-    cpdef Scene switch_scene(Director self, Scene scene):
-        cdef Scene previous_scene = self._scenes.pop()
-        previous_scene.on_exit()
-        self._scenes.append(scene)
-        self.scene = scene
-        scene.on_enter()
-        return previous_scene
+    #cpdef Scene switch_scene(Director self, Scene scene):
+        #cdef Scene previous_scene = self._scenes.pop()
+        #previous_scene.on_exit()
+        #self._scenes.append(scene)
+        #self.scene = scene
+        #scene.on_enter()
+        #return previous_scene
     
-    cpdef Scene pop_scene(Director self):
-        cdef Scene scene = self._scenes.pop()
-        scene.on_exit()
-        if self._scenes:
-            self.scene = self._scenes[-1]
-        else:
-            self.scene = None
-        return scene
+    #cpdef Scene pop_scene(Director self):
+        #cdef Scene scene = self._scenes.pop()
+        #scene.on_exit()
+        #if self._scenes:
+            #self.scene = self._scenes[-1]
+        #else:
+            #self.scene = None
+        #return scene
     
-    cpdef push_scene(Director self, Scene scene):
-        self.scene = scene
-        self._scenes.append(scene)
-        scene.on_enter()
+    #cpdef push_scene(Director self, Scene scene):
+        #self.scene = scene
+        #self._scenes.append(scene)
+        #scene.on_enter()
     
-    cdef handle_event(Director self, cwindow.Event* event_ptr):
-        cdef cwindow.Event event = event_ptr[0]
-        # OPT: Ordered so that most frequent events are at the top.
-        if event.type == cwindow.EVENT_MOUSE_MOVED:
-            self.scene.on_mouse_move_event(event.mouse_move.x, event.mouse_move.y)
-        elif event.type == cwindow.EVENT_KEY_PRESSED:
-            print 'on key press 1'
-            self.scene.on_key_press_event(
-                KEY_NAME_LOOKUP[event.key.code],
-                event.key.alt,
-                event.key.control,
-                event.key.shift,
-                event.key.system,
-            )
-        elif event.type == cwindow.EVENT_KEY_RELEASED:
-            self.scene.on_key_release_event(
-                KEY_NAME_LOOKUP[event.key.code],
-                event.key.alt,
-                event.key.control,
-                event.key.shift,
-                event.key.system,
-            )
-        elif event.type == cwindow.EVENT_MOUSE_BUTTON_PRESSED:
-            self.scene.on_mouse_button_press_event(
-                MOUSE_BUTTON_NAME_LOOKUP[event.mouse_button.button],
-                event.mouse_button.x,
-                event.mouse_button.y,
-            )
-        elif event.type == cwindow.EVENT_MOUSE_BUTTON_RELEASED:
-            self.scene.on_mouse_button_release_event(
-                MOUSE_BUTTON_NAME_LOOKUP[event.mouse_button.button],
-                event.mouse_button.x,
-                event.mouse_button.y,
-            )
-        elif event.type == cwindow.EVENT_MOUSE_WHEEL_MOVED:
-            self.scene.on_mouse_wheel_event(
-                event.mouse_wheel.delta,
-                event.mouse_wheel.x,
-                event.mouse_wheel.y,
-            )
-        elif event.type == cwindow.EVENT_JOYSTICK_MOVED:
-            self.scene.on_joystick_move_event(
-                event.joystick_move.joystick_id,
-                event.joystick_move.axis,
-                event.joystick_move.position,
-            )
-        elif event.type == cwindow.EVENT_MOUSE_ENTERED:
-            self.scene.on_mouse_entered()
-        elif event.type == cwindow.EVENT_MOUSE_LEFT:
-            self.scene.on_mouse_left()
-        elif event.type == cwindow.EVENT_JOYSTICK_BUTTON_PRESSED:
-            self.scene.on_joystick_button_pressed_event(
-                event.joystick_button.joystick_id,
-                event.joystick_button.button,
-            )
-        elif event.type == cwindow.EVENT_JOYSTICK_BUTTON_RELEASED:
-            self.scene.on_joystick_button_released_event(
-                event.joystick_button.joystick_id,
-                event.joystick_button.button,
-            )
-        elif event.type == cwindow.EVENT_LOST_FOCUS:
-            self.scene.on_lost_focus()
-        elif event.type == cwindow.EVENT_GAINED_FOCUS:
-            self.scene.on_gained_focus()
-        elif event.type == cwindow.EVENT_RESIZED:
-            self.scene.on_resize(
-                event.size.width,
-                event.size.height,
-            )
-        elif event.type == cwindow.EVENT_CLOSED:
-            self.scene.on_close()
-        elif event.type == cwindow.EVENT_JOYSTICK_CONNECTED:
-            self.scene.on_joystick_connect(event.joystick_connect.joystick_id)
-        elif event.type == cwindow.EVENT_JOYSTICK_DISCONNECTED:
-            self.scene.on_joystick_disconnect(event.joystick_connect.joystick_id)
+    #cdef handle_event(Director self, cwindow.Event* event_ptr):
+        #cdef cwindow.Event event = event_ptr[0]
+        ## OPT: Ordered so that most frequent events are at the top.
+        #if event.type == cwindow.EVENT_MOUSE_MOVED:
+            #self.scene.on_mouse_move_event(event.mouse_move.x, event.mouse_move.y)
+        #elif event.type == cwindow.EVENT_KEY_PRESSED:
+            #self.scene.on_key_press_event(
+                #KEY_NAME_LOOKUP[event.key.code],
+                #event.key.alt,
+                #event.key.control,
+                #event.key.shift,
+                #event.key.system,
+            #)
+        #elif event.type == cwindow.EVENT_KEY_RELEASED:
+            #self.scene.on_key_release_event(
+                #KEY_NAME_LOOKUP[event.key.code],
+                #event.key.alt,
+                #event.key.control,
+                #event.key.shift,
+                #event.key.system,
+            #)
+        #elif event.type == cwindow.EVENT_MOUSE_BUTTON_PRESSED:
+            #self.scene.on_mouse_button_press_event(
+                #MOUSE_BUTTON_NAME_LOOKUP[event.mouse_button.button],
+                #event.mouse_button.x,
+                #event.mouse_button.y,
+            #)
+        #elif event.type == cwindow.EVENT_MOUSE_BUTTON_RELEASED:
+            #self.scene.on_mouse_button_release_event(
+                #MOUSE_BUTTON_NAME_LOOKUP[event.mouse_button.button],
+                #event.mouse_button.x,
+                #event.mouse_button.y,
+            #)
+        #elif event.type == cwindow.EVENT_MOUSE_WHEEL_MOVED:
+            #self.scene.on_mouse_wheel_event(
+                #event.mouse_wheel.delta,
+                #event.mouse_wheel.x,
+                #event.mouse_wheel.y,
+            #)
+        #elif event.type == cwindow.EVENT_JOYSTICK_MOVED:
+            #self.scene.on_joystick_move_event(
+                #event.joystick_move.joystick_id,
+                #event.joystick_move.axis,
+                #event.joystick_move.position,
+            #)
+        #elif event.type == cwindow.EVENT_MOUSE_ENTERED:
+            #self.scene.on_mouse_entered()
+        #elif event.type == cwindow.EVENT_MOUSE_LEFT:
+            #self.scene.on_mouse_left()
+        #elif event.type == cwindow.EVENT_JOYSTICK_BUTTON_PRESSED:
+            #self.scene.on_joystick_button_pressed_event(
+                #event.joystick_button.joystick_id,
+                #event.joystick_button.button,
+            #)
+        #elif event.type == cwindow.EVENT_JOYSTICK_BUTTON_RELEASED:
+            #self.scene.on_joystick_button_released_event(
+                #event.joystick_button.joystick_id,
+                #event.joystick_button.button,
+            #)
+        #elif event.type == cwindow.EVENT_LOST_FOCUS:
+            #self.scene.on_lost_focus()
+        #elif event.type == cwindow.EVENT_GAINED_FOCUS:
+            #self.scene.on_gained_focus()
+        #elif event.type == cwindow.EVENT_RESIZED:
+            #self.scene.on_resize(
+                #event.size.width,
+                #event.size.height,
+            #)
+        #elif event.type == cwindow.EVENT_CLOSED:
+            #self.scene.on_close()
+        #elif event.type == cwindow.EVENT_JOYSTICK_CONNECTED:
+            #self.scene.on_joystick_connect(event.joystick_connect.joystick_id)
+        #elif event.type == cwindow.EVENT_JOYSTICK_DISCONNECTED:
+            #self.scene.on_joystick_disconnect(event.joystick_connect.joystick_id)
     
-    cpdef poll_events(Director self):
-        cdef bint event_exists = True
-        cdef cwindow.Event event
-        cdef bint mouse_move_event_exists = False
-        cdef cwindow.Event mouse_move_event
-        while event_exists:
-            event_exists = cgraphics.render_window_poll_event(self._window.render_window_ptr, &event)
-            if event.type == cwindow.EVENT_MOUSE_MOVED and self.limit_mouse_move_events:
-                mouse_move_event = event
-                mouse_move_event_exists = True
-                continue
-            self.handle_event(&event)
-        if mouse_move_event_exists:
-            self.handle_event(&mouse_move_event)
+    #cpdef poll_events(Director self):
+        #cdef bint event_exists = True
+        #cdef cwindow.Event event
+        #cdef bint mouse_move_event_exists = False
+        #cdef cwindow.Event mouse_move_event
+        #while event_exists:
+            #event_exists = cgraphics.render_window_poll_event(self._window.render_window_ptr, &event)
+            #if event.type == cwindow.EVENT_MOUSE_MOVED and self.limit_mouse_move_events:
+                #mouse_move_event = event
+                #mouse_move_event_exists = True
+                #continue
+            #self.handle_event(&event)
+        #if mouse_move_event_exists:
+            #self.handle_event(&mouse_move_event)
     
     cpdef run(Director self):
         if not self._scenes:
             print("Scene must be set before calling run()")
             return
-        self._window = create_render_window(self.video_mode, self._title)
+        self._window = graphics.RenderWindow_create(self.video_mode, self._title)
         # Set Director configuration
         self._window.set_vsync(self._vsync)
         self._window.set_framerate_limit(self._fps)
@@ -189,9 +180,9 @@ cdef class Director:
         self._window.set_joystick_threshold(self._joystick_threshold)
         
         while True: #self._window.is_open():
-            self.poll_events()
-            self._window.clear(self._clear_color)
-            self.scene.update(self._window)
+            #self.poll_events()
+            self._window.clear_struct(self._clear_color)
+            #self.scene.update(self._window)
             
             self._window.display()
     
@@ -216,7 +207,7 @@ cdef class Director:
         Window width in pixels.
         '''
         def __get__(Director self):
-            return self.get_width()
+             return self.video_mode.width
         
         def __set__(Director self, unsigned int width):
             self.set_width(width)
@@ -242,22 +233,34 @@ cdef class Director:
         Window height in pixels.
         '''
         def __get__(Director self):
-            return self.get_height()
+            return self.video_mode.height
         
         def __set__(Director self, unsigned int height):
             self.set_height(height)
     
     # size
     
-    cpdef Vector2u get_size(Director self):
+    cpdef tuple get_size(Director self):
         '''
         Get window size in pixels.
-        
-        :rtype: cgraphics.Vector2u
         '''
-        return create_vector2u(self.video_mode.width, self.video_mode.height)
+        return self.video_mode.width, self.video_mode.height
     
-    cpdef set_size(Director self, Vector2u size):
+    cpdef csystem.Vector2u get_size_struct(Director self):
+        return system.Vector2u(self.video_mode.width, self.video_mode.height)
+    
+    cpdef tuple get_size_xy(Director self):
+        return self.video_mode.width, self.video_mode.height
+    
+    cpdef set_size(Director self, size):
+        '''
+        Set window size in pixels.
+        
+        :type size: cgraphics.Vector2u
+        '''
+        self.set_size_struct(system.Vector2u_cast(size))
+    
+    cpdef set_size_struct(Director self, csystem.Vector2u size):
         '''
         Set window size in pixels.
         
@@ -266,15 +269,7 @@ cdef class Director:
         self.video_mode.width = size.x
         self.video_mode.height = size.y
         if self.window:
-            self.window.set_size(size)
-    
-    cpdef tuple get_size_xy(Director self):
-        '''
-        Get window size in pixels.
-        
-        :rtype: (unsigned int, unsigned int)
-        '''
-        return self.video_mode.width, self.video_mode.height
+            self.window.set_size_struct(size)
     
     cpdef set_size_xy(Director self, unsigned int width, unsigned int height):
         '''
@@ -283,20 +278,17 @@ cdef class Director:
         :type width: unsigned int
         :type height: unsigned int
         '''
-        self.video_mode.width = width
-        self.video_mode.height = height
-        if self.window:
-            self._window.set_size_xy(width, height)
+        self.set_size_struct(system.Vector2u(width, height))
     
     property size:
         '''
         Window size in pixels.
         '''
         def __get__(Director self):
-            return self.get_size_xy()
+            return self.video_mode.width, self.video_mode.height
         
-        def __set__(Director self, tuple xy):
-            self.set_size_xy(*xy)
+        def __set__(Director self, size):
+            self.set_size_struct(system.Vector2u_cast(size))
     
     # title
     
@@ -323,7 +315,7 @@ cdef class Director:
         Window title.
         '''
         def __get__(Director self):
-            return self.get_title()
+            return self._title
         
         def __set__(Director self, char* title):
             self.set_title(title)
@@ -353,7 +345,7 @@ cdef class Director:
         Window vsync enabled.
         '''
         def __get__(Director self):
-            return self.get_vsync()
+            return self._vsync
         
         def __set__(Director self, bint vsync):
             self.set_vsync(vsync)
@@ -383,7 +375,7 @@ cdef class Director:
         Window mouse cursor visible.
         '''
         def __get__(Director self):
-            return self.get_mouse_cursor_visible()
+            return self._mouse_cursor_visible
         
         def __set__(Director self, bint visible):
             self.set_mouse_cursor_visible(visible)
@@ -413,7 +405,7 @@ cdef class Director:
         Window repeat key enabled.
         '''
         def __get__(Director self):
-            return self.get_repeat_key_enabled()
+            return self._repeat_key_enabled
         
         def __set__(Director self, bint enabled):
             self.set_repeat_key_enabled(enabled)
@@ -443,7 +435,7 @@ cdef class Director:
         Window fps (framerate limit).
         '''
         def __get__(Director self):
-            return self.get_fps()
+            return self._fps
     
         def __set__(Director self, unsigned int fps):
             self.set_fps(fps)
@@ -473,7 +465,7 @@ cdef class Director:
         Joystick threshold.
         '''
         def __get__(Director self):
-            return self.get_joystick_threshold()
+            return self._joystick_threshold
         
         def __set__(Director self, float threshold):
             self.set_joystick_threshold(threshold)
@@ -514,7 +506,15 @@ cdef class Director:
     
     # clear_color
     
-    cpdef set_clear_color(Director self, cgraphics.Color color):
+    cpdef set_clear_color(Director self, color):
+        '''
+        Set window clear (background) color.
+        
+        :type color: cgraphics.Color
+        '''
+        self._clear_color = graphics.Color_cast(color)
+    
+    cpdef set_clear_color_struct(Director self, cgraphics.Color color):
         '''
         Set window clear (background) color.
         
@@ -522,7 +522,31 @@ cdef class Director:
         '''
         self._clear_color = color
     
-    cpdef cgraphics.Color get_clear_color(Director self):
+    cpdef set_clear_color_rgb(Director self, Uint8 r, Uint8 g, Uint8 b):
+        '''
+        Set window clear (background) color.
+        
+        :type color: cgraphics.Color
+        '''
+        self._clear_color = graphics.Color_from_rgb(r, g, b)
+    
+    cpdef set_clear_color_rgba(Director self, Uint8 r, Uint8 g, Uint8 b, Uint8 a):
+        '''
+        Set window clear (background) color.
+        
+        :type color: cgraphics.Color
+        '''
+        self._clear_color = graphics.Color_from_rgba(r, g, b, a)
+    
+    cpdef tuple get_clear_color(Director self):
+        '''
+        Get window clear (background) color.
+        
+        :rtype: cgraphics.Color
+        '''
+        return graphics.Color_unpack_rgba(self._clear_color)
+    
+    cpdef cgraphics.Color get_clear_color_struct(Director self):
         '''
         Get window clear (background) color.
         
@@ -530,76 +554,31 @@ cdef class Director:
         '''
         return self._clear_color
     
-    property clear_color:
-        '''
-        Window clear (background) color.
-        '''
-        def __get__(Director self):
-            return self._clear_color
-        
-        def __set__(Director self, cgraphics.Color color):
-            self._clear_color = color
-    
-    # clear_color_rgb
-    
-    cpdef set_clear_color_rgb(Director self, Uint8 r, Uint8 g, Uint8 b):
-        '''
-        Set window clear (background) color.
-        
-        :type r: Uint8
-        :type g: Uint8
-        :type b: Uint8
-        '''
-        self._clear_color = create_color_from_rgb(r, g, b)
-    
     cpdef tuple get_clear_color_rgb(Director self):
         '''
         Get window clear (background) color.
         
-        :rtype: (Uint8, Uint8, Uint8)
+        :rtype: cgraphics.Color
         '''
-        return unpack_color_rgb(self._clear_color)
-    
-    property clear_color_rgb:
-        '''
-        Get window clear (background) color.
-        '''
-        def __get__(Director self):
-            return unpack_color_rgb(self._clear_color)
-        
-        def __set__(Director self, tuple rgb):
-            self.set_clear_color_rgb(*rgb)
-    
-    # clear_color_rgba
-    
-    cpdef set_clear_color_rgba(Director self, Uint8 r, Uint8 g, Uint8 b, Uint8 a):
-        '''
-        Set window clear (background) color.
-        
-        :type r: Uint8
-        :type g: Uint8
-        :type b: Uint8
-        :type a: Uint8
-        '''
-        self._clear_color = create_color_from_rgba(r, g, b, a)
+        return graphics.Color_unpack_rgb(self._clear_color)
     
     cpdef tuple get_clear_color_rgba(Director self):
         '''
         Get window clear (background) color.
         
-        :rtype: (Uint8, Uint8, Uint8, Uint8)
+        :rtype: cgraphics.Color
         '''
-        return unpack_color_rgba(self._clear_color)
+        return graphics.Color_unpack_rgba(self._clear_color)
     
-    property clear_color_rgba:
+    property clear_color:
         '''
         Window clear (background) color.
         '''
         def __get__(Director self):
-            return unpack_color_rgba(self._clear_color)
+            return graphics.Color_unpack_rgba(self._clear_color)
         
-        def __set__(Director self, tuple rgba):
-            self.set_clear_color_rgba(*rgba)
+        def __set__(Director self, color):
+            self._clear_color = graphics.Color_cast(color)
 
 
 cdef Director director

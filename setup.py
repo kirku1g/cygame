@@ -6,7 +6,7 @@ from setuptools.dist import Distribution
 libraries = ['csfml-system', 'csfml-graphics', 'csfml-network', 'csfml-audio', 'csfml-window']
 
 ext_modules = [
-    #Extension('cygame.director', ['cygame/director.pyx'], libraries=libraries),
+    Extension('cygame.director', ['cygame/director.pyx'], libraries=libraries),
     #Extension('cygame.text', ['cygame/text.pyx'], libraries=libraries),
     #Extension('cygame.resources', ['cygame/resources.pyx'], libraries=libraries),
     #Extension('cygame.scene', ['cygame/scene.pyx'], libraries=libraries),
