@@ -1,12 +1,13 @@
 
-from graphics cimport (
-    Font,
-    Texture,
+from cysfml.graphics cimport (
+    FontWrapper,
+    TextureWrapper,
+    SpriteWrapper,
 )
-from audio cimport (
-    Music,
-    Sound,
-    SoundBuffer,
+from cysfml.audio cimport (
+    MusicWrapper,
+    SoundWrapper,
+    SoundBufferWrapper,
 )
 
 
@@ -60,20 +61,23 @@ from audio cimport (
 
 cdef class ResourceManager:
     cdef:
-        public char* root_path
+        public bytes root_path
         public dict resources, cache_types
         public set preload_types
+        public tuple file_types
     
-    cpdef file_path(ResourceManager self, char* subpath)
-    cpdef update(ResourceManager self)
-    cpdef clear_cache(ResourceManager self, tuple resource_types=*)
-    cpdef bint _add_file(ResourceManager self, char* subpath) except -1
-    cdef tuple _file_type(ResourceManager self, char* file_path)
-    cpdef Texture load_texture(ResourceManager self, char* subpath)
-    cpdef Font load_font(ResourceManager self, char* subpath)
-    cpdef Music load_music(ResourceManager self, char* subpath)    
-    cpdef Sound load_sound(ResourceManager self, char* subpath)    
-    cpdef SoundBuffer load_sound_buffer(ResourceManager self, char* subpath)
+    cpdef add_directory(ResourceManager self, bytes dir_path)
+    cpdef remove_directory(ResourceManager self, bytes dir_path)
+    cpdef update(ResourceManager self, bytes dir_path)
+    #cpdef clear_cache(ResourceManager self, tuple resource_types=*)
+    cpdef bint _add_file(ResourceManager self, bytes dir_path, bytes subpath) except -1
+    cdef tuple _file_type(ResourceManager self, bytes file_path)
+    cpdef TextureWrapper load_texture(ResourceManager self, bytes subpath)
+    cpdef SpriteWrapper load_sprite(ResourceManager self, bytes subpath)
+    cpdef FontWrapper load_font(ResourceManager self, bytes subpath)
+    cpdef MusicWrapper load_music(ResourceManager self, bytes subpath)
+    cpdef SoundWrapper load_sound(ResourceManager self, bytes subpath)
+    cpdef SoundBufferWrapper load_sound_buffer(ResourceManager self, bytes subpath)
     
     #cpdef Sound load_sound(ResourceManager self, char* file_path):
         #return create_sound_from_sound_buffer(self.loaders[SoundBuffer][file_path])
@@ -82,8 +86,11 @@ cdef class ResourceManager:
     cpdef unsigned int memory_usage(ResourceManager self)
 
 cpdef unsigned int memory_usage(char* resource_type, object obj)
-cpdef unsigned int memory_usage_texture(Texture texture)
-cpdef unsigned int memory_usage_sound_buffer(SoundBuffer sound_buffer)
+cpdef unsigned int memory_usage_texture(TextureWrapper texture)
+cpdef unsigned int memory_usage_sound_buffer(SoundBufferWrapper sound_buffer)
 
-cpdef ResourceManager init(char* root_path, tuple file_types=*, set preload_types=*, dict cache_types=*)
-cpdef ResourceManager get_resource_manager()
+#cpdef ResourceManager init(char* root_path, tuple file_types=*, set preload_types=*, dict cache_types=*)
+#cpdef ResourceManager get_resource_manager()
+
+
+cdef public ResourceManager cresource_manager

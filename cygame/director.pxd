@@ -7,7 +7,10 @@ from cysfml cimport (
     graphics,
 )
 from cysfml.cwindow cimport Event, VideoMode
-#from scene cimport Scene
+
+from actions cimport Action
+from scene cimport Scene
+from scheduler cimport Scheduler
 
 
 #cpdef VideoMode get_desktop_mode()
@@ -15,21 +18,24 @@ from cysfml.cwindow cimport Event, VideoMode
 
 cdef class Director:
     cdef VideoMode video_mode
-    cdef graphics.RenderWindowWrapper _window
+    cdef public graphics.RenderWindowWrapper window
     cdef list _scenes
-    #cdef readonly Scene scene
+    cdef readonly Scene scene
     cdef cgraphics.Color _clear_color
     cdef bytes _title
     cdef double _joystick_threshold
-    cdef bint limit_mouse_move_events, _vsync, _mouse_cursor_visible, _repeat_key_enabled, _visible
+    cdef public bint limit_mouse_move_events
+    cdef bint _vsync, _mouse_cursor_visible, _key_repeat, _visible
     cdef unsigned int _fps
     
-    #cpdef Scene switch_scene(Director self, Scene scene)
-    #cpdef Scene pop_scene(Director self)
-    #cpdef push_scene(Director self, Scene scene)
+    cpdef do(Director self, target, Action action)
     
-    #cpdef poll_events(Director self)
-    #cdef handle_event(Director self, Event* event_ptr)
+    cpdef Scene switch_scene(Director self, Scene scene)
+    cpdef Scene pop_scene(Director self)
+    cpdef push_scene(Director self, Scene scene)
+    
+    cpdef poll_events(Director self)
+    cdef handle_event(Director self, Event* event_ptr)
     
     cpdef run(Director self)
     # width    
@@ -55,8 +61,8 @@ cdef class Director:
     cpdef bint get_mouse_cursor_visible(Director self)
     cpdef set_mouse_cursor_visible(Director, bint visible)
     # repeat_key_enabled
-    cpdef bint get_repeat_key_enabled(Director self)
-    cpdef set_repeat_key_enabled(Director self, bint enabled)
+    cpdef bint get_key_repeat(Director self)
+    cpdef set_key_repeat(Director self, bint enabled)
     # fps
     cpdef unsigned int get_fps(Director self)
     cpdef set_fps(Director self, unsigned int fps)
@@ -79,15 +85,5 @@ cdef class Director:
 #cdef Director director
 
 
-cpdef Director init(
-    char* title,
-    unsigned int width=*,
-    unsigned int height=*,
-    unsigned int bits_per_pixel=*,
-    bint vsync=*,
-    unsigned int fps=*,
-)
-
-
-cpdef Director get_director()
+cpdef public Director cdirector
 

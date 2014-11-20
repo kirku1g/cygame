@@ -1,41 +1,26 @@
-cimport system
+from cysfml cimport system
+from cysfml.utils cimport richcmp_floats
 
-from time import time
+from cygame.sortedlist import SortedList
 
 
-cdef insort_time(list scheduled_items, tuple item):
-
-    cdef:
-        double insert_time = item[0]
-        double current_time
-        unsigned int length = len(scheduled_items)
-        unsigned int lo = 0
-        unsigned int hi = length
-        unsigned int mid
+cdef class ScheduledItem:
+    def __cinit__(ScheduledItem self, float call_time, callback, *args):
+        self.call_time = call_time
+        self.callback = callback
     
-    while lo < hi:
-        mid = (lo + hi) / 2
-        current_time = scheduled_items[mid][0]
-        if insert_time >= current_time:
-            hi = mid
-        else:
-            lo = mid + 1
-    
-    if lo == length:
-        scheduled_items.append(item)
-    else:
-        scheduled_items.insert(lo, item)
+    def __richcmp__(ScheduledItem self, ScheduledItem other, int op):
+        return richcmp_floats(self.call_time, other.call_time, op)
 
 
-cdef remove_callback(list scheduled_items, object callback):
-    for index, item in enumerate(scheduled_items):
-        if item[1] == callback:
-            del scheduled_items[index]
+cdef class ScheduledIntervalItem(ScheduledItem):
+    def __cinit__(ScheduledIntervalItem self, float call_time, callback, float interval):
+        self.interval = interval
+
 
 
 cdef class Scheduler:
     '''
-    
     '''
     def __cinit__(Scheduler self, bint running=True):
         # Initialise lists.
@@ -46,14 +31,28 @@ cdef class Scheduler:
         self.running = running
         self.empty = True
     
-    cpdef _schedule_time(Scheduler self, double delay):
+    cpdef _schedule_time(Scheduler self, float delay):
         '''
         Time complexity: O(1)
         '''
-        if self.running:
-            delay += time()
+        return delay + self.clock.get_elapsed_seconds()
+    
+    cpdef bint is_scheduled(Scheduler self, object callback):
+        if self.empty:
+            return False
         
-        return delay
+        if callback in self._scheduled_callbacks:
+            return True
+        
+        cdef ScheduledItem item
+        for item in self._scheduled_once_callbacks:
+            if item.callback == callback:
+                return True
+        
+        cdef ScheduledIntervalItem interval_item
+        for interval_item in self._scheduled_interval_callbacks:
+            if interval_item.callback == callback:
+                return True
 
     cpdef schedule(Scheduler self, object callback):
         '''
@@ -66,22 +65,21 @@ cdef class Scheduler:
         self._scheduled_callbacks.append(callback)
         self.empty = False
     
-    cpdef schedule_once(Scheduler self, object callback, double delay):
+    cpdef schedule_once(Scheduler self, object callback, float delay):
         '''
-        Schedule a callback to run after a delay.        
+        Schedule a callback to run after a delay.
         
-        Time complexity: ~O(n)        
+        Time complexity: ~O(n)
         
         :param callback: Callable.
         :param interval: Interval to call callback in seconds.
         '''
-        insort_time(
-            self._scheduled_once_callbacks,
-            (self._schedule_time(delay), callback),
+        self._scheduled_once_callbacks.add(
+            ScheduledItem(self._schedule_time(delay), callback),
         )
         self.empty = False
     
-    cpdef schedule_interval(Scheduler self, object callback, double interval):
+    cpdef schedule_interval(Scheduler self, object callback, float interval):
         '''
         Schedule a callback to run at an interval defined in seconds.
         
@@ -90,13 +88,23 @@ cdef class Scheduler:
         :param callback: Callable.
         :param interval: Interval to call callback in seconds.
         '''
-        insort_time(
-            self._scheduled_interval_callbacks,
-            (self._schedule_time(interval), callback, interval),
+        self._scheduled_interval_callbacks.add(
+            ScheduledIntervalItem(
+                self._schedule_time(interval),
+                callback,
+                interval,
+            ),
         )
         self.empty = False
     
-    cpdef unschedule(Scheduler self, object callback):
+    cpdef _unschedule_from_list(Scheduler self, sorted_list, callback):
+        cdef unsigned int idx, deleted = 0
+        for idx, s in enumerate(sorted_list.as_list()):
+            if callback == s.callback:
+                del sorted_list[idx - deleted]
+                deleted += 1
+    
+    cpdef unschedule(Scheduler self, callback):
         '''
         Updates self.empty if scheduler becomes empty.
         
@@ -104,9 +112,11 @@ cdef class Scheduler:
         '''
         if self.empty:
             return
-        self._scheduled_callbacks = [s for s in self._scheduled_callbacks if s != callback]
-        self._scheduled_once_callbacks = [s for s in self._scheduled_once_callbacks if s[1] != callback]
-        self._scheduled_interval_callbacks = [s for s in self._scheduled_interval_callbacks if s[1] != callback]
+        
+        self._scheduled_callbacks = [c for c in self._scheduled_callbacks if c != callback]
+        self._unschedule_from_list(self._scheduled_once_callbacks, callback)
+        self._unschedule_from_list(self._scheduled_interval_callbacks, callback)
+        
         self.empty = (
             not self._scheduled_callbacks and
             not self._scheduled_once_callbacks and
@@ -120,8 +130,8 @@ cdef class Scheduler:
         Time complexity: O(1)
         '''
         self._scheduled_callbacks = []
-        self._scheduled_once_callbacks = []
-        self._scheduled_interval_callbacks = []
+        self._scheduled_once_callbacks = SortedList()
+        self._scheduled_interval_callbacks = SortedList()
         self.empty = False
     
     cpdef start(Scheduler self):
@@ -130,34 +140,31 @@ cdef class Scheduler:
         self.running = True
         if self.empty:
             return
-        cdef double current_time = time()
-        self._shift_scheduled_times(current_time)
-        self.last_update_time = current_time
+        self.last_update_time = 0
+        self.clock.restart()
+        self.update()
     
     cpdef stop(Scheduler self):
         if not self.running:
             return
+        self.running = False
         if self.empty:
             return
-        self.running = False
-        self._shift_scheduled_times(self.clock.get_elapsed_time())
+        self._reset_scheduled_times()
     
-    cpdef _shift_scheduled_times(Scheduler self, double duration):
+    cpdef _reset_scheduled_times(Scheduler self):
         '''
         Check if self.empty before calling to avoid unnecessary list comprehensions.
         
         Time complexity: O(n)
         '''
-        self._scheduled_once_callbacks = [
-            (call_time + duration, callback)
-            for call_time, callback
-            in self._scheduled_once_callbacks
-        ]
-        self._scheduled_interval_callbacks = [
-            (call_time + duration, callback, interval)
-            for call_time, callback, interval
-            in self._scheduled_interval_callbacks
-        ]
+        cdef float current_time = self.clock.get_elapsed_seconds()
+        
+        for s in self._scheduled_once_callbacks:
+            s.call_time -= current_time
+        
+        for s in self._scheduled_interval_callbacks:
+            s.call_time -= current_time
     
     cpdef update(Scheduler self):
         '''
@@ -165,29 +172,34 @@ cdef class Scheduler:
         
         Time complexity: O(1) < O(n)
         '''
-        if not self.running:
+        if self.empty or not self.running:
             return
         
-        cdef double current_time = time()
-        cdef double elapsed_time = current_time - self.last_update_time
-        self.last_update_time = current_time
-            
+        cdef float current_time = self.clock.get_elapsed_seconds()
+        cdef float elapsed_time = current_time - self.last_update_time
+        
         cdef object callback
         for callback in self._scheduled_callbacks:
             callback(elapsed_time)
         
-        cdef double call_time
-        for call_time, callback in reversed(self._scheduled_once_callbacks):
-            if call_time > current_time:
+        cdef ScheduledItem item
+        for item in self._scheduled_once_callbacks.as_list():
+            if item.call_time > current_time:
                 break
-            callback()
-            self._scheduled_once_callbacks.pop()
+            item.callback()
+            del self._scheduled_once_callbacks[0]
         
-        cdef double interval
-        for call_time, callback, interval in reversed(self._scheduled_interval_callbacks):
-            if call_time > current_time:
+        cdef ScheduledIntervalItem interval_item
+        for interval_item in self._scheduled_interval_callbacks.as_list():
+            if interval_item.call_time > current_time:
                 break
-            callback()
-            self._scheduled_interval_callbacks.pop()
-            self.schedule_interval(callback, interval)
+            interval_item.callback()
+            del self._scheduled_interval_callbacks[0]
+            self.schedule_interval(interval_item.callback, interval_item.interval)
+        
+        self.last_update_time = self.clock.get_elapsed_seconds()
+
+
+scheduler = Scheduler()
+cdef Scheduler cscheduler = scheduler
 
